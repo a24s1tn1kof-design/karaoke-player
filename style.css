@@ -1,6 +1,5 @@
 /* ============================================================
-   style.css — Karaoke Player
-   Полная версия с модалкой ввода названия при загрузке
+   style.css — Karaoke Player (полная версия)
    ============================================================ */
 
 /* ---------- СБРОС И ПЕРЕМЕННЫЕ ---------- */
@@ -48,12 +47,11 @@ body {
 .logo {
   display: flex;
   align-items: center;
-  gap: 10px;
   padding: 0 8px 20px;
   font-size: 22px;
   font-weight: 700;
 }
-.logo-icon { font-size: 26px; }
+.logo-text { font-size: 22px; font-weight: 700; }
 
 .upload-btn {
   background: var(--green);
@@ -66,9 +64,15 @@ body {
   cursor: pointer;
   margin: 0 8px 16px;
   transition: transform .15s, background .2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: inherit;
 }
 .upload-btn:hover { background: var(--green-hover); transform: scale(1.03); }
 .upload-btn:active { transform: scale(.97); }
+.upload-btn svg { flex-shrink: 0; }
 
 /* ---------- ПЛЕЙЛИСТ ---------- */
 .playlist {
@@ -106,8 +110,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
   flex-shrink: 0;
+  color: #fff;
 }
 
 .item-info { flex: 1; min-width: 0; }
@@ -135,13 +139,16 @@ body {
   border: none;
   color: var(--text-dim);
   cursor: pointer;
-  font-size: 16px;
-  padding: 4px 8px;
+  padding: 6px;
   border-radius: 4px;
-  transition: opacity .15s, color .15s;
+  transition: opacity .15s, color .15s, background .15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .song-item:hover .item-remove { opacity: 1; }
 .item-remove:hover { color: #ff4d4d; background: rgba(255,77,77,.1); }
+.item-remove svg { display: block; pointer-events: none; }
 
 .drop-hint {
   text-align: center;
@@ -165,7 +172,7 @@ body {
 }
 
 .main.dragover::after {
-  content: "Отпусти, чтобы загрузить 🎵";
+  content: "Отпусти, чтобы загрузить";
   position: absolute;
   inset: 0;
   background: rgba(29,185,84,.15);
@@ -197,10 +204,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 36px;
   flex-shrink: 0;
   box-shadow: 0 8px 32px rgba(0,0,0,.6);
+  color: #fff;
 }
+.cover svg { opacity: .9; }
 
 .song-info { min-width: 0; flex: 1; }
 
@@ -270,7 +278,6 @@ body {
   background: transparent;
   border: none;
   color: var(--text);
-  font-size: 24px;
   cursor: pointer;
   padding: 8px;
   border-radius: 50%;
@@ -278,6 +285,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  font-family: inherit;
+}
+.ctrl svg {
+  display: block;
+  pointer-events: none;
 }
 .ctrl:hover { transform: scale(1.15); color: var(--green); }
 .ctrl:active { transform: scale(.95); }
@@ -287,9 +299,9 @@ body {
   color: #000;
   width: 56px;
   height: 56px;
-  font-size: 22px;
   box-shadow: 0 4px 20px rgba(29,185,84,.4);
 }
+.ctrl.play svg { margin: 0 auto; }
 .ctrl.play:hover {
   background: var(--green-hover);
   transform: scale(1.08);
@@ -303,7 +315,13 @@ body {
   align-items: center;
   gap: 8px;
 }
-.vol-icon { font-size: 16px; }
+.vol-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
 
 #volume {
   width: 100px;
@@ -343,6 +361,13 @@ body {
   transition: all .2s;
   white-space: nowrap;
   font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.edit-btn svg, .search-btn svg {
+  flex-shrink: 0;
+  pointer-events: none;
 }
 .edit-btn:hover { border-color: var(--green); color: var(--green); }
 
@@ -434,7 +459,7 @@ body {
   to { transform: rotate(360deg); }
 }
 
-/* ---------- МОДАЛКИ (общее) ---------- */
+/* ---------- МОДАЛКИ ---------- */
 .modal {
   position: fixed;
   inset: 0;
@@ -497,7 +522,7 @@ body {
   font-family: monospace;
 }
 
-/* ---------- МОДАЛКА РЕДАКТОРА ТЕКСТА ---------- */
+/* ---------- МОДАЛКА РЕДАКТОРА ---------- */
 #lyricsInput {
   flex: 1;
   min-height: 240px;
@@ -514,15 +539,10 @@ body {
   transition: border-color .2s;
 }
 
-#lyricsInput:focus {
-  border-color: var(--green);
-}
+#lyricsInput:focus { border-color: var(--green); }
+#lyricsInput::placeholder { color: #444; }
 
-#lyricsInput::placeholder {
-  color: #444;
-}
-
-/* ---------- 🆕 МОДАЛКА ВВОДА НАЗВАНИЯ ПРИ ЗАГРУЗКЕ ---------- */
+/* ---------- МОДАЛКА ВВОДА НАЗВАНИЯ ---------- */
 .song-name-input {
   width: 100%;
   background: #0a0a0a;
@@ -542,21 +562,15 @@ body {
   box-shadow: 0 0 0 4px rgba(29,185,84,.15);
 }
 
-.song-name-input::placeholder {
-  color: #555;
-}
+.song-name-input::placeholder { color: #555; }
 
-/* Прогресс-бар в модалке (сколько песен осталось) */
 .upload-progress {
   text-align: center;
   font-size: 13px;
   color: var(--text-dim);
   margin-top: 8px;
 }
-
-.upload-progress b {
-  color: var(--green);
-}
+.upload-progress b { color: var(--green); }
 
 /* ---------- КНОПКИ В МОДАЛКАХ ---------- */
 .modal-buttons {
@@ -582,37 +596,26 @@ body {
   color: var(--text-dim);
   border: 1px solid #444;
 }
-.btn.cancel:hover {
-  color: var(--text);
-  border-color: #888;
-}
+.btn.cancel:hover { color: var(--text); border-color: #888; }
 
 .btn.save {
   background: var(--green);
   color: #000;
 }
-.btn.save:hover {
-  background: var(--green-hover);
-  transform: scale(1.05);
-}
+.btn.save:hover { background: var(--green-hover); transform: scale(1.05); }
 .btn.save:active { transform: scale(.97); }
 
 /* ---------- УТИЛИТЫ ---------- */
 .hidden { display: none !important; }
-
-.text-green { color: var(--green); }
-.text-dim { color: var(--text-dim); }
-.text-mute { color: var(--text-mute); }
+#pauseIcon { display: none; }
 
 /* ---------- АДАПТИВ: ПЛАНШЕТ ---------- */
 @media (max-width: 1024px) {
-  .app {
-    grid-template-columns: 260px 1fr;
-  }
+  .app { grid-template-columns: 260px 1fr; }
   .main { padding: 24px 28px; }
   .lyrics { font-size: 22px; }
   .song-title { font-size: 20px; }
-  .cover { width: 64px; height: 64px; font-size: 28px; }
+  .cover { width: 64px; height: 64px; }
 }
 
 /* ---------- АДАПТИВ: МОБИЛЬНЫЙ ---------- */
@@ -634,7 +637,7 @@ body {
   }
 
   .logo { font-size: 18px; padding-bottom: 12px; }
-  .logo-icon { font-size: 22px; }
+  .logo-text { font-size: 18px; }
 
   .upload-btn {
     padding: 10px;
@@ -649,7 +652,8 @@ body {
     min-height: 500px;
   }
 
-  .cover { width: 56px; height: 56px; font-size: 24px; }
+  .cover { width: 56px; height: 56px; }
+  .cover svg { width: 24px; height: 24px; }
   .song-title { font-size: 18px; }
   .song-sub { font-size: 12px; }
 
@@ -657,7 +661,7 @@ body {
   .lyric-line { padding: 8px 12px; }
 
   .controls { gap: 12px; }
-  .ctrl.play { width: 48px; height: 48px; font-size: 18px; }
+  .ctrl.play { width: 48px; height: 48px; }
 
   .volume-wrap {
     position: static;
@@ -670,7 +674,7 @@ body {
     align-items: flex-start;
   }
   .lyrics-actions { width: 100%; }
-  .edit-btn, .search-btn { flex: 1; text-align: center; }
+  .edit-btn, .search-btn { flex: 1; justify-content: center; }
 
   .modal-box {
     padding: 20px;
@@ -680,20 +684,16 @@ body {
   #lyricsInput { min-height: 180px; font-size: 13px; }
   .song-name-input { padding: 14px; font-size: 15px; }
 
-  .modal-buttons {
-    flex-direction: column-reverse;
-  }
-  .modal-buttons .btn {
-    width: 100%;
-  }
+  .modal-buttons { flex-direction: column-reverse; }
+  .modal-buttons .btn { width: 100%; }
 }
 
 /* ---------- АДАПТИВ: ОЧЕНЬ МАЛЕНЬКИЙ ЭКРАН ---------- */
 @media (max-width: 400px) {
   .song-title { font-size: 16px; }
   .lyrics { font-size: 18px; }
-  .ctrl { font-size: 20px; }
-  .ctrl.play { width: 44px; height: 44px; font-size: 16px; }
+  .ctrl { padding: 6px; }
+  .ctrl.play { width: 44px; height: 44px; }
   .volume-wrap { display: none; }
 }
 
@@ -703,4 +703,4 @@ body {
     animation-duration: .01ms !important;
     transition-duration: .01ms !important;
   }
-   }
+}
