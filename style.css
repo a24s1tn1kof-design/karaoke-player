@@ -1,6 +1,6 @@
 /* ============================================================
-   style.css — ЧАСТЬ 1
-   Переменные, layout, сайдбар, плейлист, правая панель
+   style.css — Karaoke Player
+   Полная версия с модалкой ввода названия при загрузке
    ============================================================ */
 
 /* ---------- СБРОС И ПЕРЕМЕННЫЕ ---------- */
@@ -342,6 +342,7 @@ body {
   font-weight: 500;
   transition: all .2s;
   white-space: nowrap;
+  font-family: inherit;
 }
 .edit-btn:hover { border-color: var(--green); color: var(--green); }
 
@@ -406,10 +407,6 @@ body {
   color: var(--green);
   text-shadow: 0 0 20px rgba(29,185,84,.6);
 }
-/* ============================================================
-   style.css — ЧАСТЬ 2
-   Спиннер, модалка редактора, адаптив
-   ============================================================ */
 
 /* ---------- СПИННЕР ЗАГРУЗКИ ---------- */
 .lyric-loading {
@@ -437,7 +434,7 @@ body {
   to { transform: rotate(360deg); }
 }
 
-/* ---------- МОДАЛКА РЕДАКТОРА ТЕКСТА ---------- */
+/* ---------- МОДАЛКИ (общее) ---------- */
 .modal {
   position: fixed;
   inset: 0;
@@ -500,6 +497,7 @@ body {
   font-family: monospace;
 }
 
+/* ---------- МОДАЛКА РЕДАКТОРА ТЕКСТА ---------- */
 #lyricsInput {
   flex: 1;
   min-height: 240px;
@@ -524,6 +522,43 @@ body {
   color: #444;
 }
 
+/* ---------- 🆕 МОДАЛКА ВВОДА НАЗВАНИЯ ПРИ ЗАГРУЗКЕ ---------- */
+.song-name-input {
+  width: 100%;
+  background: #0a0a0a;
+  border: 2px solid #333;
+  border-radius: 10px;
+  padding: 16px 18px;
+  color: var(--text);
+  font-size: 16px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+  margin-bottom: 8px;
+}
+
+.song-name-input:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 4px rgba(29,185,84,.15);
+}
+
+.song-name-input::placeholder {
+  color: #555;
+}
+
+/* Прогресс-бар в модалке (сколько песен осталось) */
+.upload-progress {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 8px;
+}
+
+.upload-progress b {
+  color: var(--green);
+}
+
+/* ---------- КНОПКИ В МОДАЛКАХ ---------- */
 .modal-buttons {
   display: flex;
   justify-content: flex-end;
@@ -643,6 +678,14 @@ body {
   }
   .modal-box h3 { font-size: 18px; }
   #lyricsInput { min-height: 180px; font-size: 13px; }
+  .song-name-input { padding: 14px; font-size: 15px; }
+
+  .modal-buttons {
+    flex-direction: column-reverse;
+  }
+  .modal-buttons .btn {
+    width: 100%;
+  }
 }
 
 /* ---------- АДАПТИВ: ОЧЕНЬ МАЛЕНЬКИЙ ЭКРАН ---------- */
@@ -660,4 +703,4 @@ body {
     animation-duration: .01ms !important;
     transition-duration: .01ms !important;
   }
-}
+   }
