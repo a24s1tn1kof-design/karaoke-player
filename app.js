@@ -1,7 +1,7 @@
 /* ============================================================
    🎵 KARAOKE PLAYER — ЧАСТЬ 1/2
-   DOM, состояние, IndexedDB, ID3-теги, LRCLIB, парсеры,
-   загрузка с вводом названия
+   DOM, состояние, IndexedDB, ID3, LRCLIB, парсеры,
+   загрузка файлов с вводом названия
    ============================================================ */
 
 /* ---------- 1. DOM-ЭЛЕМЕНТЫ ---------- */
@@ -28,11 +28,14 @@ const searchLyricsBtn = document.getElementById("searchLyricsBtn");
 const saveBtn = document.getElementById("saveBtn");
 const cancelBtn = document.getElementById("cancelBtn");
 
-// 🆕 элементы модалки ввода названия
+const playIcon = document.getElementById("playIcon");
+const pauseIcon = document.getElementById("pauseIcon");
+
 const uploadModal = document.getElementById("uploadModal");
 const songNameInput = document.getElementById("songNameInput");
 const saveNameBtn = document.getElementById("saveNameBtn");
 const skipNameBtn = document.getElementById("skipNameBtn");
+const uploadProgress = document.getElementById("uploadProgress");
 
 /* ---------- 2. СОСТОЯНИЕ ---------- */
 let songs = [];
@@ -40,7 +43,6 @@ let currentIndex = -1;
 let lineElements = [];
 let isSeeking = false;
 
-// 🆕 очередь файлов, ожидающих ввода названия
 let pendingFiles = [];
 let pendingIndex = 0;
 
@@ -109,14 +111,12 @@ function dbUpdateLyrics(id, lyrics) {
 }
 
 /* ============================================================
-   4. ID3-ТЕГИ (используется как fallback, если ввод пропустили)
+   4. ID3-ТЕГИ
    ============================================================ */
 
 function readID3Tags(file) {
   return new Promise(resolve => {
-    if (typeof jsmediatags === "undefined") {
-      return resolve(null);
-    }
+    if (typeof jsmediatags === "undefined") return resolve(null);
     jsmediatags.read(file, {
       onSuccess: tag => {
         const tags = tag.tags || {};
@@ -131,11 +131,10 @@ function readID3Tags(file) {
 }
 
 /* ============================================================
-   5. LRCLIB API — БЕЗ ПРОВЕРКИ ДЛИТЕЛЬНОСТИ
+   5. LRCLIB API
    ============================================================ */
 
 async function fetchLyricsFromLRCLIB(trackName, artistName) {
-  // Сначала — точный запрос (без duration!)
   const params = new URLSearchParams();
   params.set("track_name", trackName);
   if (artistName) params.set("artist_name", artistName);
@@ -149,7 +148,6 @@ async function fetchLyricsFromLRCLIB(trackName, artistName) {
     }
   } catch (e) { console.warn("LRCLIB exact failed:", e); }
 
-  // Свободный поиск
   const searchParams = new URLSearchParams();
   searchParams.set("q", `${trackName} ${artistName || ""}`.trim());
 
@@ -170,9 +168,114 @@ async function fetchLyricsFromLRCLIB(trackName, artistName) {
 }
 
 /* ============================================================
-   6. ПАРСЕРЫ
+   6. 📖 СЛОВАРЬ ЧАСТЫХ РУССКИХ СЛОВ
+   ============================================================ */
+const RU_DICT = new Set([
+  "я","ты","он","она","оно","мы","вы","они","меня","тебя","его","её","нас","вас","их",
+  "мне","тебе","ему","ей","нам","вам","им","мной","тобой","ним","ней","нами","вами","ими",
+  "мой","моя","моё","мои","твой","твоя","твоё","твои","наш","наша","наше","наши",
+  "ваш","ваша","ваше","ваши","свой","своя","своё","свои","себя","себе","собой",
+  "этот","эта","это","эти","тот","та","то","те","такой","такая","такое","такие",
+  "весь","вся","всё","все","сам","сама","само","сами","каждый","каждая","каждое","каждые",
+  "кто","что","какой","какая","какое","какие","чей","чья","чьё","чьи",
+  "который","которая","которое","которые","где","когда","куда","откуда","почему","зачем","как",
+  "быть","есть","был","была","было","были","буду","будешь","будет","будем","будете","будут",
+  "мочь","могу","можешь","может","можем","можете","могут","мог","могла","могло","могли",
+  "хотеть","хочу","хочешь","хочет","хотим","хотите","хотят","хотел","хотела","хотело","хотели",
+  "делать","делаю","делаешь","делает","делаем","делаете","делают","сделать","сделал","сделала",
+  "говорить","говорю","говоришь","говорит","говорим","говорите","говорят","сказать","сказал","сказала",
+  "знать","знаю","знаешь","знает","знаем","знаете","знают","знал","знала",
+  "видеть","вижу","видишь","видит","видим","видите","видят","видел","видела",
+  "слышать","слышу","слышишь","слышит","слышим","слышите","слышат","слышал","слышала",
+  "думать","думаю","думаешь","думает","думаем","думаете","думают","думал","думала",
+  "идти","иду","идёшь","идёт","идём","идёте","идут","шёл","шла","шло","шли","пойти","пошёл",
+  "дать","даю","даёшь","даёт","даём","даёте","дают","дал","дала","дало","дали","давай","давайте",
+  "взять","беру","берёшь","берёт","берём","берёте","берут","взял","взяла","взяли",
+  "жить","живу","живёшь","живёт","живём","живёте","живут","жил","жила","жило","жили",
+  "любить","люблю","любишь","любит","любим","любите","любят","любил","любила",
+  "петь","пою","поёшь","поёт","поём","поёте","поют","пел","пела",
+  "играть","играю","играешь","играет","играем","играете","играют",
+  "стоять","стою","стоишь","стоит","стоим","стоите","стоят","стоял",
+  "лежать","лежу","лежишь","лежит","лежим","лежите","лежат",
+  "сидеть","сижу","сидишь","сидит","сидим","сидите","сидят","сидел",
+  "летать","летаю","летаешь","летает","летаем","летаете","летают",
+  "плакать","плачу","плачешь","плачет","плачем","плачете","плачут",
+  "умереть","умру","умрёшь","умрёт","умрём","умрёте","умрут","умер","умерла",
+  "время","года","год","годы","день","дни","дня","ночь","ночи","утро","утра","вечер","вечера",
+  "жизнь","жизни","смерть","смерти","любовь","любви","сердце","сердца","душа","души",
+  "глаз","глаза","рука","руки","руку","ноги","нога","голова","головы",
+  "дом","дома","дому","город","города","страна","страны","земля","земли",
+  "небо","неба","солнце","солнца","луна","луны","звезда","звезды","звёзды",
+  "море","моря","река","реки","гора","горы","лес","леса","поле","поля","дорога","дороги","путь","пути",
+  "друг","друга","друзья","друзей","враг","врага","враги","мать","матери","отец","отца",
+  "сын","сына","дочь","дочери","брат","брата","сестра","сестры","жена","жены","муж","мужа",
+  "ребёнок","ребёнка","дети","детей","человек","человека","люди","людей","людьми",
+  "слово","слова","слов","песня","песни","песен","музыка","музыки","голос","голоса",
+  "война","войны","мир","мира","битва","битвы","победа","победы",
+  "счастье","счастья","радость","радости","печаль","печали","боль","боли","страх","страха",
+  "мечта","мечты","надежда","надежды","вера","веры","судьба","судьбы","правда","правды","ложь","лжи",
+  "работа","работы","деньги","денег","сила","силы","слабость","слабости",
+  "хороший","хорошая","хорошее","хорошие","плохой","плохая","плохое","плохие",
+  "большой","большая","большое","большие","маленький","маленькая","маленькое","маленькие",
+  "новый","новая","новое","новые","старый","старая","старое","старые","молодой","молодая",
+  "белый","белая","белое","белые","чёрный","чёрная","чёрное","чёрные","красный","красная",
+  "синий","синяя","синее","синие","зелёный","зелёная","жёлтый","жёлтая",
+  "первый","первая","первое","первые","последний","последняя","последнее","последние",
+  "и","а","но","или","да","нет","не","ни","же","ли","бы","вот","вон","ещё","уж","уже",
+  "в","во","на","за","под","над","из","от","до","по","при","про","без","для","через","между",
+  "с","со","к","ко","о","об","обо","у","около","возле","после","перед",
+  "там","тут","здесь","везде","нигде","всегда","никогда","иногда","часто","редко","снова","опять",
+  "очень","слишком","совсем","почти","только","лишь","даже","именно","так",
+  "хорошо","плохо","быстро","медленно","громко","тихо","легко","трудно","вместе","врозь",
+  "потом","сначала","теперь","сейчас","затем","раньше","позже","скоро","давно",
+  "давай","давайте","ну","ладно","пойдём","пошли","стой","подожди",
+  "чтобы","если","хотя","потому","поэтому","зато","причём","притом",
+  "ах","ох","ух","эх","ой","ай","эй",
+  "привет","пока","здравствуй","здравствуйте","спасибо","пожалуйста","извини","прости",
+  "один","одна","одно","одни","два","две","три","четыре","пять","шесть","семь","восемь","девять","десять",
+  "сто","тысяча","миллион","много","мало","сколько","столько","несколько"
+]);
+
+/* ============================================================
+   7. ПАРСЕРЫ
    ============================================================ */
 
+/** Разбивает слитный текст на слова по словарю */
+function splitSquishedText(text) {
+  if (/\s/.test(text)) return text;
+
+  const lower = text.toLowerCase();
+  const result = [];
+  let pos = 0;
+  const maxWordLen = 20;
+
+  while (pos < text.length) {
+    let found = false;
+
+    for (let len = Math.min(maxWordLen, text.length - pos); len >= 2; len--) {
+      const candidate = lower.substr(pos, len);
+      if (RU_DICT.has(candidate)) {
+        result.push(text.substr(pos, len));
+        pos += len;
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      if (result.length > 0) {
+        result[result.length - 1] += text[pos];
+      } else {
+        result.push(text[pos]);
+      }
+      pos++;
+    }
+  }
+
+  return result.join(" ");
+}
+
+/** Парсит LRC-формат [mm:ss.xx] текст */
 function parseLRC(lrcText) {
   const lines = lrcText.split("\n").map(l => l.trim()).filter(Boolean);
   const result = [];
@@ -188,14 +291,59 @@ function parseLRC(lrcText) {
   return addWordsToLines(result);
 }
 
+/** Парсит обычный текст — разбивает слова, потом на строки */
 function parsePlainLyrics(text) {
-  const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+  // 1. Если текст без пробелов и длинный — разрезаем на слова
+  let prepared = "";
+  const rawLines = text.split("\n").map(l => l.trim()).filter(Boolean);
+
+  rawLines.forEach(line => {
+    if (line.length > 15 && !/\s/.test(line)) {
+      prepared += splitSquishedText(line) + "\n";
+    } else {
+      prepared += line + "\n";
+    }
+  });
+
+  // 2. Разбиваем на строки по знакам препинания
+  const sentences = [];
+  const chunks = prepared.split(/\n+/).filter(Boolean);
+
+  chunks.forEach(chunk => {
+    const parts = chunk
+      .split(/(?<=[.!?…])\s+/)
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    parts.forEach(part => {
+      const words = part.split(/\s+/);
+      if (words.length > 8) {
+        const subParts = part.split(/(?<=,)\s+/);
+        subParts.forEach(sp => {
+          const spTrim = sp.trim();
+          if (spTrim) sentences.push(spTrim);
+        });
+      } else {
+        sentences.push(part);
+      }
+    });
+  });
+
+  const lines = sentences.length > 0 ? sentences : [text];
+
+  // 3. Распределяем равномерно по длительности
   const duration = audio.duration && isFinite(audio.duration) ? audio.duration : 180;
   const step = duration / lines.length;
-  const result = lines.map((text, i) => ({ time: +(i * step).toFixed(2), text }));
+
+  const result = lines.map((text, i) => ({
+    time: +(i * step).toFixed(2),
+    text
+  }));
+
   return addWordsToLines(result);
 }
 
+/** Разбивает строки на слова с временами */
 function addWordsToLines(lines) {
   return lines.map((line, i) => {
     const words = line.text.split(/\s+/).filter(Boolean);
@@ -217,14 +365,14 @@ function addWordsToLines(lines) {
 }
 
 /* ============================================================
-   7. КНОПКА «🔍 НАЙТИ ТЕКСТ» (ручной поиск)
+   8. КНОПКА «НАЙТИ ТЕКСТ»
    ============================================================ */
 
 searchLyricsBtn.addEventListener("click", async () => {
   if (currentIndex === -1) { alert("Сначала выбери песню"); return; }
   const song = songs[currentIndex];
   searchLyricsBtn.disabled = true;
-  searchLyricsBtn.textContent = "⏳ Поиск...";
+  searchLyricsBtn.textContent = "Поиск...";
 
   lyricsEl.innerHTML = `
     <div class="lyric-loading">
@@ -236,7 +384,13 @@ searchLyricsBtn.addEventListener("click", async () => {
   const lyrics = await fetchLyricsFromLRCLIB(song.title, song.artist || "");
 
   searchLyricsBtn.disabled = false;
-  searchLyricsBtn.textContent = "🔍 Найти текст";
+  searchLyricsBtn.innerHTML = `
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="7"/>
+      <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+    <span>Найти текст</span>
+  `;
 
   if (lyrics && lyrics.length > 0) {
     song.lyrics = lyrics;
@@ -245,15 +399,15 @@ searchLyricsBtn.addEventListener("click", async () => {
   } else {
     lyricsEl.innerHTML = `
       <p class="hint">
-        😔 Текст не найден автоматически.<br>
-        Нажми «✏ Редактировать», чтобы вставить вручную.
+        Текст не найден автоматически.<br>
+        Нажми «Редактировать», чтобы вставить вручную.
       </p>
     `;
   }
 });
 
 /* ============================================================
-   8. ЗАГРУЗКА ФАЙЛОВ — С ВВОДОМ НАЗВАНИЯ
+   9. ЗАГРУЗКА ФАЙЛОВ
    ============================================================ */
 
 uploadBtn.addEventListener("click", () => fileInput.click());
@@ -285,26 +439,15 @@ dropZone.addEventListener("drop", e => {
   if (files.length) handleFiles(files);
 });
 
-/**
- * Начинает обработку файлов: для каждого спрашивает название.
- */
 async function handleFiles(files) {
-  // Сбрасываем очередь
   pendingFiles = files;
   pendingIndex = 0;
-
-  // Если это первая загрузка вообще — не запускаем сразу, ждём подтверждения
   await askNextFileName();
 }
 
-/**
- * Спрашивает название для очередного файла из очереди.
- */
 async function askNextFileName() {
-  // Очередь кончилась
   if (pendingIndex >= pendingFiles.length) {
     renderPlaylist();
-    // Запускаем первую, если плейлист был пуст
     if (songs.length > 0 && currentIndex === -1) {
       playSong(0);
     }
@@ -313,9 +456,8 @@ async function askNextFileName() {
 
   const file = pendingFiles[pendingIndex];
   const defaultName = file.name.replace(/\.[^.]+$/, "");
-
-  // Пробуем ID3 — если есть, подставим как placeholder
   const tags = await readID3Tags(file);
+
   let placeholder = defaultName;
   if (tags && tags.title) {
     placeholder = tags.artist ? `${tags.artist} - ${tags.title}` : tags.title;
@@ -324,26 +466,20 @@ async function askNextFileName() {
   songNameInput.value = "";
   songNameInput.placeholder = placeholder;
 
-  // Показываем сколько осталось
   const remain = pendingFiles.length - pendingIndex;
-  const remainEl = document.querySelector(".upload-progress");
-  if (remainEl) {
-    remainEl.innerHTML = remain > 1
-      ? `Осталось песен: <b>${remain}</b>`
-      : "";
-  }
+  uploadProgress.innerHTML = remain > 1
+    ? `Осталось песен: <b>${remain}</b>`
+    : "";
 
   uploadModal.classList.add("show");
-  songNameInput.focus();
+  setTimeout(() => songNameInput.focus(), 100);
 }
 
-/* ---- Обработчик кнопки «Сохранить и искать» ---- */
 saveNameBtn.addEventListener("click", async () => {
   const raw = songNameInput.value.trim();
   await finishFile(raw);
 });
 
-/* ---- Enter в поле ввода = сохранить ---- */
 songNameInput.addEventListener("keydown", async e => {
   if (e.key === "Enter") {
     e.preventDefault();
@@ -352,18 +488,10 @@ songNameInput.addEventListener("keydown", async e => {
   }
 });
 
-/* ---- Кнопка «Пропустить» ---- */
 skipNameBtn.addEventListener("click", async () => {
   await finishFile("");
 });
 
-/**
- * Завершает обработку одного файла:
- *   - парсит название (или берёт ID3/имя)
- *   - сохраняет песню
- *   - ищет текст
- *   - открывает следующий файл
- */
 async function finishFile(rawName) {
   uploadModal.classList.remove("show");
 
@@ -374,7 +502,6 @@ async function finishFile(rawName) {
   let artist = "";
 
   if (rawName) {
-    // Пользователь ввёл имя вручную
     const dashMatch = rawName.match(/^(.+?)\s*[-–—]\s*(.+)$/);
     if (dashMatch) {
       artist = dashMatch[1].trim();
@@ -383,7 +510,6 @@ async function finishFile(rawName) {
       title = rawName;
     }
   } else {
-    // Пропустил — берём ID3 или имя файла
     const tags = await readID3Tags(file);
     if (tags && tags.title) {
       title = tags.title;
@@ -402,9 +528,7 @@ async function finishFile(rawName) {
   const id = "s_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
 
   const song = {
-    id,
-    title,
-    artist,
+    id, title, artist,
     blob: file,
     src: URL.createObjectURL(file),
     lyrics: []
@@ -413,7 +537,6 @@ async function finishFile(rawName) {
   songs.push(song);
   await dbAdd(song);
 
-  // Сразу ищем текст для этой песни
   if (title) {
     try {
       const lyrics = await fetchLyricsFromLRCLIB(title, artist);
@@ -428,22 +551,21 @@ async function finishFile(rawName) {
 
   renderPlaylist();
 
-  // Следующий файл
   pendingIndex++;
   await askNextFileName();
 }
 
 /* ============================================================
-   ЧАСТЬ 1 ЗАКОНЧЕНА. Продолжение — во ЧАСТИ 2.
+   ЧАСТЬ 1 ЗАКОНЧЕНА — продолжение во ЧАСТИ 2
    ============================================================ */
 /* ============================================================
    🎵 KARAOKE PLAYER — ЧАСТЬ 2/2
-   Плейлист, воспроизведение, прогресс, караоке, редактор,
-   клавиши, утилиты, запуск
+   Плейлист, воспроизведение, прогресс, караоке,
+   редактор, клавиши, утилиты, запуск
    ============================================================ */
 
 /* ============================================================
-   9. ПЛЕЙЛИСТ
+   10. ПЛЕЙЛИСТ
    ============================================================ */
 
 function renderPlaylist() {
@@ -452,7 +574,7 @@ function renderPlaylist() {
   if (songs.length === 0) {
     const empty = document.createElement("div");
     empty.style.cssText = "color:#6a6a6a;font-size:13px;padding:12px;text-align:center;";
-    empty.textContent = "Пока пусто. Загрузи mp3 🎵";
+    empty.textContent = "Пока пусто. Загрузи mp3";
     playlistEl.appendChild(empty);
     return;
   }
@@ -463,7 +585,13 @@ function renderPlaylist() {
 
     const cover = document.createElement("div");
     cover.className = "item-cover";
-    cover.textContent = "♪";
+    cover.innerHTML = `
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 18V5l12-2v13"/>
+        <circle cx="6" cy="18" r="3"/>
+        <circle cx="18" cy="16" r="3"/>
+      </svg>
+    `;
 
     const info = document.createElement("div");
     info.className = "item-info";
@@ -480,8 +608,13 @@ function renderPlaylist() {
 
     const remove = document.createElement("button");
     remove.className = "item-remove";
-    remove.textContent = "✕";
     remove.title = "Удалить";
+    remove.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <line x1="18" y1="6" x2="6" y2="18"/>
+        <line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    `;
     remove.addEventListener("click", async e => {
       e.stopPropagation();
       await removeSong(i);
@@ -512,8 +645,8 @@ async function removeSong(index) {
     audio.src = "";
     songTitle.textContent = "Выбери песню";
     songSub.textContent = "или загрузи свою";
-    lyricsEl.innerHTML = '<p class="hint">Выбери песню или загрузи mp3 🎤</p>';
-    playBtn.textContent = "▶";
+    lyricsEl.innerHTML = '<p class="hint">Выбери песню или загрузи mp3</p>';
+    updatePlayIcon(false);
   } else if (wasPlaying) {
     currentIndex = Math.min(index, songs.length - 1);
     playSong(currentIndex);
@@ -525,7 +658,7 @@ async function removeSong(index) {
 }
 
 /* ============================================================
-   10. ВОСПРОИЗВЕДЕНИЕ
+   11. ВОСПРОИЗВЕДЕНИЕ
    ============================================================ */
 
 function playSong(index) {
@@ -538,12 +671,10 @@ function playSong(index) {
 
   songTitle.textContent = song.title;
   songSub.textContent = song.artist || "Играет...";
-  playBtn.textContent = "⏸";
 
   renderLyrics(song.lyrics || []);
   renderPlaylist();
 
-  // Если текста нет — попробуем найти
   if (!song.lyrics || song.lyrics.length === 0) {
     autoFetchLyrics(song);
   }
@@ -569,11 +700,21 @@ async function autoFetchLyrics(song) {
     if (songs[currentIndex] && songs[currentIndex].id === song.id) {
       lyricsEl.innerHTML = `
         <p class="hint">
-          😔 Текст не найден автоматически.<br>
-          Нажми «🔍 Найти текст» или «✏ Редактировать».
+          Текст не найден автоматически.<br>
+          Нажми «Найти текст» или «Редактировать».
         </p>
       `;
     }
+  }
+}
+
+function updatePlayIcon(isPlaying) {
+  if (isPlaying) {
+    playIcon.style.display = "none";
+    pauseIcon.style.display = "block";
+  } else {
+    playIcon.style.display = "block";
+    pauseIcon.style.display = "none";
   }
 }
 
@@ -583,13 +724,15 @@ playBtn.addEventListener("click", () => {
     return;
   }
   if (audio.paused) {
-    audio.play();
-    playBtn.textContent = "⏸";
+    audio.play().catch(() => {});
   } else {
     audio.pause();
-    playBtn.textContent = "▶";
   }
 });
+
+audio.addEventListener("play", () => updatePlayIcon(true));
+audio.addEventListener("pause", () => updatePlayIcon(false));
+audio.addEventListener("ended", () => updatePlayIcon(false));
 
 prevBtn.addEventListener("click", () => {
   if (currentIndex > 0) playSong(currentIndex - 1);
@@ -602,7 +745,6 @@ nextBtn.addEventListener("click", () => {
 
 audio.addEventListener("ended", () => {
   if (currentIndex < songs.length - 1) playSong(currentIndex + 1);
-  else playBtn.textContent = "▶";
 });
 
 volume.addEventListener("input", () => {
@@ -611,7 +753,7 @@ volume.addEventListener("input", () => {
 audio.volume = 1;
 
 /* ============================================================
-   11. ПРОГРЕСС-БАР
+   12. ПРОГРЕСС-БАР
    ============================================================ */
 
 audio.addEventListener("loadedmetadata", () => {
@@ -634,7 +776,7 @@ progress.addEventListener("click", e => {
 });
 
 /* ============================================================
-   12. КАРАОКЕ
+   13. КАРАОКЕ
    ============================================================ */
 
 function renderLyrics(lines) {
@@ -642,7 +784,7 @@ function renderLyrics(lines) {
   lineElements = [];
 
   if (!lines || lines.length === 0) {
-    lyricsEl.innerHTML = '<p class="hint">Нет текста. Нажми «🔍 Найти текст» или «✏ Редактировать».</p>';
+    lyricsEl.innerHTML = '<p class="hint">Нет текста. Нажми «Найти текст» или «Редактировать».</p>';
     return;
   }
 
@@ -704,7 +846,7 @@ function updateLyricsHighlight(t) {
 }
 
 /* ============================================================
-   13. РЕДАКТОР ТЕКСТА
+   14. РЕДАКТОР ТЕКСТА
    ============================================================ */
 
 editLyricsBtn.addEventListener("click", () => {
@@ -736,7 +878,7 @@ saveBtn.addEventListener("click", async () => {
 });
 
 /* ============================================================
-   14. ГОРЯЧИЕ КЛАВИШИ
+   15. ГОРЯЧИЕ КЛАВИШИ
    ============================================================ */
 
 document.addEventListener("keydown", e => {
@@ -747,7 +889,7 @@ document.addEventListener("keydown", e => {
 });
 
 /* ============================================================
-   15. УТИЛИТЫ
+   16. УТИЛИТЫ
    ============================================================ */
 
 function escapeHtml(str) {
@@ -764,7 +906,7 @@ function formatTime(s) {
 }
 
 /* ============================================================
-   16. СТАРТ
+   17. СТАРТ
    ============================================================ */
 
 async function init() {
