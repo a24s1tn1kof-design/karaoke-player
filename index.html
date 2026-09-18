@@ -575,13 +575,100 @@ body {
 .hidden { display: none !important; }
 #pauseIcon { display: none; }
 
-/* ---------- АДАПТИВ ---------- */
+/* ---------- АДАПТИВ: ПЛАНШЕТ ---------- */
 @media (max-width: 1024px) {
   .app { grid-template-columns: 260px 1fr; }
   .main { padding: 24px 28px; }
   .lyrics { font-size: 22px; }
   .song-title { font-size: 20px; }
   .cover { width: 64px; height: 64px; }
+}
+
+/* ---------- АДАПТИВ: МОБИЛЬНЫЙ ---------- */
+@media (max-width: 768px) {
+  body { overflow: auto; height: auto; }
+
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    height: auto;
+    min-height: 100vh;
+    padding: 6px;
+    gap: 6px;
+  }
+
+  .sidebar {
+    padding: 14px 10px;
+    max-height: 260px;
+  }
+
+  .logo { padding-bottom: 12px; }
+  .logo-text { font-size: 18px; }
+
+  .upload-btn {
+    padding: 10px;
+    font-size: 13px;
+    margin: 0 6px 12px;
+  }
+
+  .playlist { max-height: 160px; }
+
+  .main {
+    padding: 20px 16px;
+    min-height: 500px;
+  }
+
+  .cover { width: 56px; height: 56px; }
+  .cover svg { width: 24px; height: 24px; }
+  .song-title { font-size: 18px; }
+  .song-sub { font-size: 12px; }
+
+  .lyrics { font-size: 20px; padding: 12px 6px; }
+  .lyric-line { padding: 8px 12px; }
+
+  .controls { gap: 12px; }
+  .ctrl.play { width: 48px; height: 48px; }
+
+  .volume-wrap {
+    position: static;
+    margin-left: auto;
+  }
+  #volume { width: 80px; }
+
+  .lyrics-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .lyrics-actions { width: 100%; }
+  .edit-btn, .search-btn { flex: 1; justify-content: center; }
+
+  .modal-box {
+    padding: 20px;
+    border-radius: 12px;
+  }
+  .modal-box h3 { font-size: 18px; }
+  #lyricsInput { min-height: 180px; font-size: 13px; }
+  .song-name-input { padding: 14px; font-size: 15px; }
+
+  .modal-buttons { flex-direction: column-reverse; }
+  .modal-buttons .btn { width: 100%; }
+}
+
+/* ---------- АДАПТИВ: МАЛЕНЬКИЙ ЭКРАН ---------- */
+@media (max-width: 400px) {
+  .song-title { font-size: 16px; }
+  .lyrics { font-size: 18px; }
+  .ctrl { padding: 6px; }
+  .ctrl.play { width: 44px; height: 44px; }
+  .volume-wrap { display: none; }
+}
+
+/* ---------- УМЕНЬШЕННАЯ АНИМАЦИЯ ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
 }
 </style>
 </head>
@@ -669,8 +756,8 @@ body {
         </svg>
         <input type="range" id="volume" min="0" max="1" step="0.01" value="1">
       </div>
-  </div>
-      <!-- ТЕКСТ -->
+   </div>
+       <!-- ТЕКСТ -->
     <div class="lyrics-header">
       <h2>Текст песни</h2>
       <div class="lyrics-actions">
@@ -753,4 +840,4 @@ body {
 <script src="app.js"></script>
 
 </body>
-      </html>
+           </html>
